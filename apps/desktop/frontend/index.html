@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Companion — Notes</title>
+    <style>
+      :root {
+        --bg: #16181d; --panel: #1e2128; --border: #2c313c; --text: #e6e9ef;
+        --muted: #8b93a7; --accent: #6ea8fe; --danger: #e0607e;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text); background: var(--bg); display: flex; height: 100vh;
+      }
+      #sidebar {
+        width: 280px; border-right: 1px solid var(--border); display: flex;
+        flex-direction: column; background: var(--panel);
+      }
+      #sidebar header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 14px; border-bottom: 1px solid var(--border);
+      }
+      #sidebar header h1 { font-size: 14px; margin: 0; letter-spacing: .04em; }
+      button {
+        font: inherit; color: var(--text); background: var(--border);
+        border: 0; border-radius: 6px; padding: 6px 10px; cursor: pointer;
+      }
+      button:hover { filter: brightness(1.15); }
+      button.accent { background: var(--accent); color: #0b1220; font-weight: 600; }
+      button.danger { background: transparent; color: var(--danger); }
+      #list { flex: 1; overflow-y: auto; }
+      .item {
+        padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer;
+      }
+      .item:hover { background: #232732; }
+      .item.active { background: #2b3140; }
+      .item .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .item .p { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      #editor { flex: 1; display: flex; flex-direction: column; padding: 20px 24px; gap: 12px; }
+      #editor.empty { align-items: center; justify-content: center; color: var(--muted); }
+      #title {
+        font-size: 20px; font-weight: 700; background: transparent; border: 0;
+        color: var(--text); outline: none;
+      }
+      #content {
+        flex: 1; resize: none; background: var(--panel); border: 1px solid var(--border);
+        border-radius: 8px; color: var(--text); padding: 12px; font: inherit; outline: none;
+      }
+      #editor footer { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; }
+      .empty-msg { text-align: center; }
+    </style>
+  </head>
+  <body>
+    <aside id="sidebar">
+      <header>
+        <h1>NOTES</h1>
+        <button class="accent" id="new">+ New</button>
+      </header>
+      <div id="list"></div>
+    </aside>
+    <main id="editor" class="empty"><div class="empty-msg">Select or create a note.</div></main>
+
+    <script>
+      // --- core bridge: string method + JSON in/out over the Wails asset handler ---
+      async function invoke(method, payload) {
+        const res = await fetch("/invoke", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ method, payload: payload ?? null }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        return data;
+      }
+
+      const notes = {
+        list: () => invoke("notes.list"),
+        create: (input) => invoke("notes.create", input),
+        update: (id, fields) => invoke("notes.update", { id, ...fields }),
+        remove: (id) => invoke("notes.delete", { id }),
+      };
+
+      let items = [];
+      let activeId = null;
+      let saveTimer = null;
+
+      const $list = document.getElementById("list");
+      const $editor = document.getElementById("editor");
+
+      function fmt(ts) {
+        try { return new Date(ts).toLocaleString(); } catch { return ""; }
+      }
+
+      async function refresh() {
+        items = await notes.list();
+        renderList();
+        if (activeId && !items.find((n) => n.id === activeId)) {
+          activeId = null;
+          renderEditor();
+        }
+      }
+
+      function renderList() {
+        $list.innerHTML = "";
+        for (const n of items) {
+          const el = document.createElement("div");
+          el.className = "item" + (n.id === activeId ? " active" : "");
+          el.innerHTML =
+            `<div class="t">${escapeHtml(n.title || "Untitled")}</div>` +
+            `<div class="p">${escapeHtml((n.contentMd || "").slice(0, 60)) || "&nbsp;"}</div>`;
+          el.onclick = () => { activeId = n.id; renderList(); renderEditor(); };
+          $list.appendChild(el);
+        }
+      }
+
+      function renderEditor() {
+        const note = items.find((n) => n.id === activeId);
+        if (!note) {
+          $editor.className = "empty";
+          $editor.innerHTML = '<div class="empty-msg">Select or create a note.</div>';
+          return;
+        }
+        $editor.className = "";
+        $editor.innerHTML = `
+          <input id="title" placeholder="Untitled" />
+          <textarea id="content" placeholder="Write in markdown…"></textarea>
+          <footer>
+            <span id="status">Saved · ${fmt(note.updatedAt)}</span>
+            <button class="danger" id="delete">Delete</button>
+          </footer>`;
+        const $title = document.getElementById("title");
+        const $content = document.getElementById("content");
+        const $status = document.getElementById("status");
+        $title.value = note.title;
+        $content.value = note.contentMd;
+
+        const scheduleSave = () => {
+          $status.textContent = "Saving…";
+          clearTimeout(saveTimer);
+          saveTimer = setTimeout(async () => {
+            const updated = await notes.update(note.id, {
+              title: $title.value,
+              contentMd: $content.value,
+            });
+            note.title = updated.title;
+            note.contentMd = updated.contentMd;
+            note.updatedAt = updated.updatedAt;
+            $status.textContent = "Saved · " + fmt(updated.updatedAt);
+            renderList();
+          }, 400);
+        };
+        $title.oninput = scheduleSave;
+        $content.oninput = scheduleSave;
+        document.getElementById("delete").onclick = async () => {
+          await notes.remove(note.id);
+          activeId = null;
+          await refresh();
+        };
+      }
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) =>
+          ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      }
+
+      document.getElementById("new").onclick = async () => {
+        const created = await notes.create({ title: "Untitled", contentMd: "" });
+        await refresh();
+        activeId = created.id;
+        renderList();
+        renderEditor();
+        document.getElementById("title")?.focus();
+      };
+
+      // Live refresh when the core signals data changed from any source.
+      try {
+        const es = new EventSource("/events");
+        es.addEventListener("notes.changed", () => { if (!saveTimer) refresh(); });
+      } catch { /* SSE optional */ }
+
+      refresh().catch((e) => {
+        $editor.innerHTML = '<div class="empty-msg">Failed to load: ' + escapeHtml(e.message) + "</div>";
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+// Platform-agnostic surface + the HTTP (desktop) bridge. The wasm/wa-sqlite bridge
+// (web-only, ~1MB) lives behind the "@companion/core-bridge/wasm" subpath so shells
+// that don't need it (desktop) never bundle it.
+export type { CoreBridge, SqliteDriver, SqlValue, Note } from "./types";
+export { notesApi } from "./notes";
+export type { NotesApi, CreateNoteInput, UpdateNoteInput } from "./notes";
+export { createHttpBridge } from "./http";
+export type { HttpBridgeOptions } from "./http";

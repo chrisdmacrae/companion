@@ -1,7 +1,9 @@
-// Command desktop is the Companion desktop client (PLAN §3.2, milestone 1). It is
-// the cheapest binding: it imports core/ directly (no cgo/FFI boundary) and hosts a
-// Wails v3 webview. Go methods reach the frontend through the core's string+JSON
-// Invoke API, bridged over the Wails AssetServer handler (see bridge_handler.go).
+// Command desktop is the Companion desktop client (PLAN §3.2). It is the cheapest
+// binding: it imports core/ directly (no cgo/FFI boundary) and hosts a Wails v3
+// webview. The webview runs the shared React Native (react-native-web) UI from
+// packages/app, built by apps/desktop/frontend (Vite) into frontend/dist and
+// embedded here. That UI reaches the in-process core through the string+JSON Invoke
+// API, bridged over the Wails AssetServer handler (see bridge_handler.go).
 package main
 
 import (
@@ -18,7 +20,10 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-//go:embed all:frontend
+// The Vite build output. Run `make desktop-frontend` (or `make desktop`) to
+// populate frontend/dist before `go build`.
+//
+//go:embed all:frontend/dist
 var assets embed.FS
 
 func main() {
@@ -45,13 +50,20 @@ func main() {
 		},
 	})
 
+	// Transparent titlebar: the standard window controls stay, but the titlebar is
+	// see-through and content extends to the top edge, so the app's own toolbar
+	// reads as the window chrome. Background matches the app canvas (#f5f5f3).
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:     "Companion",
-		Width:     1000,
-		Height:    720,
-		MinWidth:  600,
-		MinHeight: 400,
-		URL:       "/",
+		Title:            "Companion",
+		Width:            1000,
+		Height:           720,
+		MinWidth:         600,
+		MinHeight:        400,
+		BackgroundColour: application.NewRGB(245, 245, 243),
+		URL:              "/",
+		Mac: application.MacWindow{
+			TitleBar: application.MacTitleBarHiddenInset,
+		},
 	})
 
 	if err := app.Run(); err != nil {
@@ -62,7 +74,7 @@ func main() {
 // rootHandler serves the embedded frontend at "/" and routes the core bridge API
 // (/invoke, /events) to the bridge handler.
 func rootHandler(bridge *bridgeHandler) http.Handler {
-	frontend, err := fs.Sub(assets, "frontend")
+	frontend, err := fs.Sub(assets, "frontend/dist")
 	if err != nil {
 		log.Fatalf("mount frontend assets: %v", err)
 	}

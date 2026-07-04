@@ -16,7 +16,7 @@ var ErrNotFound = errors.New("not found")
 
 // NotesRepo is the CRUD repository for notes.
 type NotesRepo struct {
-	db    *sql.DB
+	db    Driver
 	clock domain.Clock
 }
 
@@ -35,6 +35,8 @@ type UpdateNoteInput struct {
 }
 
 const timeFormat = time.RFC3339Nano
+
+const noteColumns = `id, title, content_md, date, created_at, updated_at, deleted_at, version, dirty`
 
 // Create inserts a new note with a client-generated UUIDv7 id (time-ordered),
 // stamped created_at/updated_at, version 0 and dirty=1 (unsynced local edit).
@@ -71,17 +73,25 @@ func (r *NotesRepo) Create(in CreateNoteInput) (*domain.Note, error) {
 
 // Get returns a single non-deleted note by id, or ErrNotFound.
 func (r *NotesRepo) Get(id string) (*domain.Note, error) {
-	row := r.db.QueryRow(
-		`SELECT id, title, content_md, date, created_at, updated_at, deleted_at, version, dirty
-		 FROM notes WHERE id = ? AND deleted_at IS NULL;`, id)
-	return scanNote(row)
+	rows, err := r.db.Query(
+		`SELECT `+noteColumns+` FROM notes WHERE id = ? AND deleted_at IS NULL;`, id)
+	if err != nil {
+		return nil, fmt.Errorf("query note: %w", err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return nil, ErrNotFound
+	}
+	return scanNote(rows)
 }
 
 // List returns all non-deleted notes, newest-updated first.
 func (r *NotesRepo) List() ([]*domain.Note, error) {
 	rows, err := r.db.Query(
-		`SELECT id, title, content_md, date, created_at, updated_at, deleted_at, version, dirty
-		 FROM notes WHERE deleted_at IS NULL ORDER BY updated_at DESC, id DESC;`)
+		`SELECT ` + noteColumns + ` FROM notes WHERE deleted_at IS NULL ORDER BY updated_at DESC, id DESC;`)
 	if err != nil {
 		return nil, fmt.Errorf("query notes: %w", err)
 	}
@@ -150,28 +160,20 @@ func (r *NotesRepo) Delete(id string) error {
 	return nil
 }
 
-// rowScanner is satisfied by both *sql.Row and *sql.Rows.
-type rowScanner interface {
-	Scan(dest ...any) error
-}
-
-func scanNote(s rowScanner) (*domain.Note, error) {
+func scanNote(rows Rows) (*domain.Note, error) {
 	var (
 		n                    domain.Note
 		date, deletedAt      sql.NullString
 		createdAt, updatedAt string
 		dirty                int
 	)
-	err := s.Scan(&n.ID, &n.Title, &n.ContentMD, &date, &createdAt, &updatedAt, &deletedAt, &n.Version, &dirty)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
+	if err := rows.Scan(&n.ID, &n.Title, &n.ContentMD, &date, &createdAt, &updatedAt, &deletedAt, &n.Version, &dirty); err != nil {
 		return nil, fmt.Errorf("scan note: %w", err)
 	}
 	if date.Valid {
 		n.Date = &date.String
 	}
+	var err error
 	if n.CreatedAt, err = time.Parse(timeFormat, createdAt); err != nil {
 		return nil, fmt.Errorf("parse created_at: %w", err)
 	}

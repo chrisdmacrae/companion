@@ -1,3 +1,5 @@
+//go:build !js
+
 package store
 
 import (
@@ -136,11 +138,20 @@ func TestNotesDeleteIsSoft(t *testing.T) {
 		t.Errorf("list after delete has %d notes, want 0", len(notes))
 	}
 	// ...but the tombstone row still exists (soft delete).
+	rows, err := s.db.Query(`SELECT deleted_at FROM notes WHERE id = ?;`, n.ID)
+	if err != nil {
+		t.Fatalf("tombstone query: %v", err)
+	}
+	if !rows.Next() {
+		rows.Close()
+		t.Fatal("tombstone row missing")
+	}
 	var deletedAt *string
-	row := s.db.QueryRow(`SELECT deleted_at FROM notes WHERE id = ?;`, n.ID)
-	if err := row.Scan(&deletedAt); err != nil {
+	if err := rows.Scan(&deletedAt); err != nil {
+		rows.Close()
 		t.Fatalf("tombstone scan: %v", err)
 	}
+	rows.Close()
 	if deletedAt == nil {
 		t.Error("expected deleted_at to be set on tombstone")
 	}

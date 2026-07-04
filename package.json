@@ -9,6 +9,7 @@
   },
   "workspaces": [
     "apps/*",
+    "apps/desktop/frontend",
     "packages/*"
   ],
   "scripts": {

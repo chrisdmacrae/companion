@@ -24,3 +24,7 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 .env
+
+# generated at build time (scripts/generate-sitemap.mjs)
+public/robots.txt
+public/sitemap.xml

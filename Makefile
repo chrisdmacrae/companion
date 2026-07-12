@@ -6,10 +6,11 @@ BUILD_DIR ?= build
 WASM_EXEC := $(shell $(GO) env GOROOT)/lib/wasm/wasm_exec.js
 WEB_PUBLIC := apps/web/public
 MOBILE_MODULE := apps/mobile/modules/companion-core
+VISIONOS_APP := apps/visionos
 
 .PHONY: all test test-go fmt vet desktop desktop-frontend desktop-run desktop-app desktop-app-run core-wasm web-assets \
         web-run server server-run cloud cloud-frontend cloud-emails cloud-run gomobile-init core-android core-ios android-lib \
-        mobile-artifacts mobile-run db-up db-down db-logs db-reset clean
+        mobile-artifacts mobile-run tokens visionos-editor core-visionos visionos-artifacts visionos-project visionos-run db-up db-down db-logs db-reset clean
 
 all: test
 
@@ -173,6 +174,63 @@ android-run: mobile-run
 
 ios-run: mobile-artifacts
 	npm run ios -w @companion/mobile
+
+## tokens: generate platform token files from the design system (packages/design-system/
+## src/tokens.ts is the source of truth). Currently emits apps/visionos/Sources/Tokens.swift.
+tokens:
+	npm run generate:tokens -w @companion/design-system
+
+## visionos-editor: emit the bundled ProseMirror editor (@companion/editor) as web assets
+## for the visionOS WKWebView host (apps/visionos/Resources/editor.{js,css}).
+visionos-editor:
+	npm run generate:visionos -w @companion/editor
+
+## core-visionos: cross-compile the core -> build/Core-visionos.xcframework (visionOS
+## device + simulator, arm64). Go has no GOOS=visionos and gomobile has no visionOS
+## target, so this is hand-rolled by tools/visionos/build-xcframework.sh (see that
+## script's header). Distinct filename from core-ios so the two don't clobber each other
+## in $(BUILD_DIR).
+core-visionos:
+	mkdir -p $(BUILD_DIR)
+	GO="$(GO)" tools/visionos/build-xcframework.sh $(BUILD_DIR)/Core-visionos.xcframework
+
+## visionos-artifacts: place the visionOS core binding into the native app
+## (apps/visionos/vendor/Core.xcframework) where project.yml expects it. Mirrors
+## mobile-artifacts. The vendor dir is gitignored (regenerated from source).
+visionos-artifacts: core-visionos
+	rm -rf $(VISIONOS_APP)/vendor/Core.xcframework
+	mkdir -p $(VISIONOS_APP)/vendor
+	cp -R $(BUILD_DIR)/Core-visionos.xcframework $(VISIONOS_APP)/vendor/Core.xcframework
+
+## visionos-project: generate apps/visionos/Companion.xcodeproj from project.yml. The
+## .xcodeproj is generated (gitignored); project.yml is the source of truth. Needs
+## XcodeGen (`brew install xcodegen`).
+visionos-project: tokens visionos-editor
+	@command -v xcodegen >/dev/null 2>&1 || { echo "error: xcodegen not found; run 'brew install xcodegen'" >&2; exit 1; }
+	cd $(VISIONOS_APP) && xcodegen generate
+
+## visionos-run: build the native visionOS app and run it in the visionOS Simulator.
+## Builds with a generic destination (avoids ambiguity when several Vision Pro sims
+## exist), then resolves a concrete available visionOS simulator UDID to install +
+## launch on. Override the device with `make visionos-run VISIONOS_DEVICE=<udid>`.
+VISIONOS_DEVICE ?=
+visionos-run: visionos-artifacts visionos-project
+	cd $(VISIONOS_APP) && xcodebuild -project Companion.xcodeproj -scheme Companion \
+		-destination 'generic/platform=visionOS Simulator' \
+		-derivedDataPath build/DerivedData build
+	@dev="$(VISIONOS_DEVICE)"; \
+	 if [ -z "$$dev" ]; then \
+	   dev=$$(xcrun simctl list devices available | awk '/^-- visionOS/{v=1;next} /^-- /{v=0} v' | grep -Eo '[0-9A-Fa-f-]{36}' | head -1); \
+	 fi; \
+	 [ -n "$$dev" ] || { echo "error: no available visionOS simulator; create one in Xcode > Settings > Components" >&2; exit 1; }; \
+	 echo "using visionOS simulator $$dev"; \
+	 xcrun simctl boot "$$dev" 2>/dev/null || true; \
+	 xcrun simctl install "$$dev" "$(VISIONOS_APP)/build/DerivedData/Build/Products/Debug-xrsimulator/Companion.app"; \
+	 xcrun simctl launch --console "$$dev" com.companion.visionos
+	xcrun simctl boot "$(VISIONOS_SIM)" 2>/dev/null || true
+	xcrun simctl install "$(VISIONOS_SIM)" \
+		"$(VISIONOS_APP)/build/DerivedData/Build/Products/Debug-xrsimulator/Companion.app"
+	xcrun simctl launch --console "$(VISIONOS_SIM)" com.companion.visionos
 
 ## db-up: start the local development database(s) in the background
 db-up:

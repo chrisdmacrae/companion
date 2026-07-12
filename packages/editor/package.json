@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build:editor": "node scripts/build-editor.mjs",
+    "generate:visionos": "tsx scripts/generate-visionos-assets.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

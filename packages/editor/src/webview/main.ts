@@ -12,6 +12,9 @@ declare global {
     ReactNativeWebView?: { postMessage(message: string): void };
     __INITIAL_MARKDOWN__?: string;
     __HAS_LINK_SOURCE__?: boolean;
+    // When true, `[[` uses the editor's inline caret popup instead of delegating to a native
+    // host modal. Set by hosts whose keyboard doesn't fight a DOM popup (visionOS windows).
+    __INLINE_AUTOCOMPLETE__?: boolean;
     __HAS_DOCUMENT_SOURCE__?: boolean;
     __EDITOR_VARIANT__?: "full" | "simple";
     __PLACEHOLDER__?: string;
@@ -99,6 +102,7 @@ function init(): void {
   const mount = document.getElementById("editor");
   if (!mount) return;
   const hasLinks = !!window.__HAS_LINK_SOURCE__;
+  const inlineAutocomplete = !!window.__INLINE_AUTOCOMPLETE__;
   const simple = window.__EDITOR_VARIANT__ === "simple";
   const handle = createEditor(mount, window.__INITIAL_MARKDOWN__ ?? "", (markdown) => post("change", markdown), {
     variant: simple ? "simple" : "full",
@@ -107,11 +111,13 @@ function init(): void {
     // In the composer, Enter sends: post the exact content so the host sends what's shown.
     // Task notes leave this off (Enter makes a new paragraph).
     onSubmit: window.__SUBMIT_ON_ENTER__ ? (md) => post("submit", md) : undefined,
-    // linkSource still resolves pasted UUIDs; `[[` delegates to the native modal, which
-    // posts linkTrigger/linkTriggerEnd and injects window.__insertRef / __cancelRef.
+    // linkSource resolves pasted UUIDs and (unless a native modal is used) feeds the inline
+    // `[[` caret popup. When hostAutocomplete is set instead, `[[` delegates to the native
+    // modal, which posts linkTrigger/linkTriggerEnd and injects window.__insertRef.
     linkSource: hasLinks ? bridgedLinkSource() : undefined,
     documentSource: window.__HAS_DOCUMENT_SOURCE__ ? bridgedDocumentSource() : undefined,
-    hostAutocomplete: hasLinks
+    // Inline hosts (visionOS) keep the built-in caret popup — focus stays in the editor.
+    hostAutocomplete: hasLinks && !inlineAutocomplete
       ? {
           open: (embed) => post("linkTrigger", { embed }),
           close: () => post("linkTriggerEnd", null),

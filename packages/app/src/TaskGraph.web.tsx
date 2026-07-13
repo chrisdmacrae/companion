@@ -4,7 +4,7 @@ import { useCore } from "./CoreContext";
 import { useNav } from "./nav-context";
 import { useStyledGraph } from "./useStyledGraph";
 // Explicit .web specifier — see the note in GraphScreen.web.tsx.
-import { GraphEmpty, GraphView, nodeKey } from "./GraphView.web";
+import { GraphEmpty, GraphView, nodeKey } from "@companion/graph";
 
 // The per-task neighborhood graph (PLAN §5.2 graph.neighborhood): the task sits at the
 // center and its links fan out. React Flow is DOM-only, so this is the .web variant;

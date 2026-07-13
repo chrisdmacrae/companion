@@ -1,5 +1,5 @@
 import type { Graph } from "@companion/core-bridge";
-import { GraphView } from "./GraphView.web";
+import { GraphView } from "@companion/graph";
 
 // Web/desktop graph canvas: React Flow straight in the DOM (no WebView needed). Mirrors
 // the native GraphCanvas.tsx prop shape so callers are platform-agnostic. Native "open"

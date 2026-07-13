@@ -38,9 +38,6 @@ struct TodayView: View {
                 .frame(width: 380)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Darken the whole window glass (behind the white note card and the calendar/agenda
-        // pane alike) so the brand orange and secondary text read against the passthrough.
-        .background(Brand.gray950.opacity(0.32))
         // Floating formatting toolbar: a bottom ornament shown only while the editor is
         // focused (the visionOS analogue of the mobile keyboard toolbar).
         .ornament(visibility: editorFocused ? .visible : .hidden, attachmentAnchor: .scene(.bottom)) {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ScrollView, View, type GestureResponderEvent } from "react-native";
 import type { Note } from "@companion/core-bridge";
-import { Center, Icon, Input, ListRow, SplitView, Spinner, Text, colors, layout, space } from "@companion/design-system";
+import { Center, Icon, IconButton, Input, ListRow, SplitView, Spinner, Text, colors, layout, space } from "@companion/design-system";
 import { useNav } from "./nav-context";
 import { useNotes } from "./NotesProvider";
 import { useTasks } from "./TasksProvider";
@@ -171,6 +171,11 @@ function NotesList() {
     return store.visible.filter((n) => n.title.toLowerCase().includes(q) || n.contentMd.toLowerCase().includes(q));
   }, [store.visible, query]);
 
+  const onCreate = async () => {
+    const note = await store.create();
+    nav.openNote(note.id);
+  };
+
   // Announce this list (and its visible order) so multiselect gestures + range work here.
   // Only while the notes route is active — the workspace stays mounted (hidden) on other
   // routes, and registering there would fight the on-screen list for the shared scope.
@@ -197,6 +202,9 @@ function NotesList() {
         <Text variant="mono" tone="tertiary">
           {store.visible.length}
         </Text>
+        <IconButton label="New note" size="sm" onPress={onCreate}>
+          <Icon name="plus" size={16} color={colors.textSecondary} />
+        </IconButton>
       </View>
       <View style={styles.search}>
         <Input

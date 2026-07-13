@@ -27,6 +27,7 @@ private struct RootView: View {
     @State private var core: CompanionCore?
     @State private var model: TodayModel?
     @State private var bootError: String?
+    @State private var showQuickAdd = false
 
     var body: some View {
         Group {
@@ -40,13 +41,24 @@ private struct RootView: View {
                 // The modern `Tab(value:)` API + adaptable sidebar shows all tools +
                 // Settings (the classic `.tabItem`/`.tag` tab bar dropped tabs past ~8).
                 TabView(selection: $selection) {
-                    ForEach(Tool.railTools) { tool in
+                    ForEach(EnabledTools.current.railTools) { tool in
                         Tab(tool.label, systemImage: tool.symbol, value: tool) {
                             toolView(tool, core: core, model: model)
                         }
                     }
                 }
                 .tabViewStyle(.sidebarAdaptable)
+                // Quick-add is a tab-bar *action*: selecting it opens the sheet and reverts
+                // the selection so it never navigates to an empty view.
+                .onChange(of: selection) { previous, new in
+                    if new == .quickAdd {
+                        selection = previous == .quickAdd ? .today : previous
+                        showQuickAdd = true
+                    }
+                }
+                .sheet(isPresented: $showQuickAdd) {
+                    QuickAddSheet(core: core)
+                }
             } else {
                 ProgressView("Opening…")
                     .task { boot() }
@@ -56,10 +68,23 @@ private struct RootView: View {
     }
 
     @ViewBuilder private func toolView(_ tool: Tool, core: CompanionCore, model: TodayModel) -> some View {
-        switch tool {
-        case .today: TodayView(model: model)
-        case .settings: SettingsScreen(core: core)
-        default: ToolPlaceholder(tool: tool)
+        if tool == .quickAdd {
+            Color.clear   // never shown — selecting quick-add opens a sheet and reverts
+        } else {
+            Group {
+                switch tool {
+                case .today: TodayView(model: model)
+                case .inboxes: InboxesView(enabled: EnabledTools.current, core: core)
+                case .areasProjects: AreasProjectsView(core: core)
+                case .graph: GraphToolView(core: core)
+                case .settings: SettingsScreen(core: core)
+                default: ToolPlaceholder(tool: tool)   // chat, trash
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Darken the window glass uniformly across every tool (matches the Today view),
+            // so brand colors + secondary text read against the passthrough.
+            .background(Brand.gray950.opacity(0.32))
         }
     }
 

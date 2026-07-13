@@ -10,7 +10,7 @@ VISIONOS_APP := apps/visionos
 
 .PHONY: all test test-go fmt vet desktop desktop-frontend desktop-run desktop-app desktop-app-run core-wasm web-assets \
         web-run server server-run cloud cloud-frontend cloud-emails cloud-run gomobile-init core-android core-ios android-lib \
-        mobile-artifacts mobile-run tokens visionos-editor core-visionos visionos-artifacts visionos-project visionos-run db-up db-down db-logs db-reset clean
+        mobile-artifacts mobile-run tokens visionos-editor visionos-graph core-visionos visionos-artifacts visionos-project visionos-run db-up db-down db-logs db-reset clean
 
 all: test
 
@@ -185,6 +185,11 @@ tokens:
 visionos-editor:
 	npm run generate:visionos -w @companion/editor
 
+## visionos-graph: emit the bundled React Flow graph (@companion/graph) as web assets for
+## the visionOS WKWebView host (apps/visionos/Resources/graph.{js,css}).
+visionos-graph:
+	npm run generate:visionos -w @companion/graph
+
 ## core-visionos: cross-compile the core -> build/Core-visionos.xcframework (visionOS
 ## device + simulator, arm64). Go has no GOOS=visionos and gomobile has no visionOS
 ## target, so this is hand-rolled by tools/visionos/build-xcframework.sh (see that
@@ -205,7 +210,7 @@ visionos-artifacts: core-visionos
 ## visionos-project: generate apps/visionos/Companion.xcodeproj from project.yml. The
 ## .xcodeproj is generated (gitignored); project.yml is the source of truth. Needs
 ## XcodeGen (`brew install xcodegen`).
-visionos-project: tokens visionos-editor
+visionos-project: tokens visionos-editor visionos-graph
 	@command -v xcodegen >/dev/null 2>&1 || { echo "error: xcodegen not found; run 'brew install xcodegen'" >&2; exit 1; }
 	cd $(VISIONOS_APP) && xcodegen generate
 

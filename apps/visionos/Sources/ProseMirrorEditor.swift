@@ -81,10 +81,14 @@ struct ProseMirrorEditor: UIViewRepresentable {
     let markdown: String
     let controller: EditorController
     let bridge: EditorBridge
+    /// "full" is the document editor (headings/lists/marks + toolbar); "simple" is the
+    /// plain-text-plus-references field used by quick capture.
+    var variant: String = "full"
+    var placeholder: String = ""
     var onChange: (String) -> Void
-    var onFocusChange: (Bool) -> Void
-    var onFormatState: (FormatState) -> Void
-    var onTableMenu: (TableMenuModel) -> Void
+    var onFocusChange: (Bool) -> Void = { _ in }
+    var onFormatState: (FormatState) -> Void = { _ in }
+    var onTableMenu: (TableMenuModel) -> Void = { _ in }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -108,7 +112,7 @@ struct ProseMirrorEditor: UIViewRepresentable {
         web.scrollView.backgroundColor = .clear
         web.scrollView.bounces = false
         controller.webView = web
-        web.loadHTMLString(Coordinator.html(markdown: markdown), baseURL: nil)
+        web.loadHTMLString(Coordinator.html(markdown: markdown, variant: variant, placeholder: placeholder), baseURL: nil)
         return web
     }
 
@@ -193,23 +197,27 @@ struct ProseMirrorEditor: UIViewRepresentable {
             return state
         }
 
-        /// Builds the WebView HTML: editor CSS + a white page + seeded globals + the bundle,
-        /// matching `Editor.tsx`'s `buildHtml` (full variant, link + document sources on).
-        static func html(markdown: String) -> String {
+        /// Builds the WebView HTML: editor CSS + seeded globals + the bundle, matching
+        /// `Editor.tsx`'s `buildHtml`. The simple variant is a transparent inline field; the
+        /// full variant is a white document page.
+        static func html(markdown: String, variant: String, placeholder: String) -> String {
             let css = resource("editor", "css")
             let js = resource("editor", "js")
             let initial = jsStringLiteral(markdown)
+            let simple = variant == "simple"
+            let bodyBg = simple ? "background:transparent;" : "min-height:100%;background:#ffffff;"
+            let mountClass = simple ? "pm-compact" : "pm-wrap"
             return """
             <!DOCTYPE html>
             <html>
             <head>
             <meta charset="utf-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-            <style>html,body{margin:0;padding:0;min-height:100%;background:#ffffff;}\(css)</style>
+            <style>html,body{margin:0;padding:0;\(bodyBg)}\(css)</style>
             </head>
             <body>
-            <div id="editor" class="pm-wrap"></div>
-            <script>window.__INITIAL_MARKDOWN__ = \(initial); window.__HAS_LINK_SOURCE__ = true; window.__INLINE_AUTOCOMPLETE__ = true; window.__HAS_DOCUMENT_SOURCE__ = true; window.__EDITOR_VARIANT__ = "full"; window.__PLACEHOLDER__ = ""; window.__SUBMIT_ON_ENTER__ = false; window.__DEBOUNCE_MS__ = undefined;</script>
+            <div id="editor" class="\(mountClass)"></div>
+            <script>window.__INITIAL_MARKDOWN__ = \(initial); window.__HAS_LINK_SOURCE__ = true; window.__INLINE_AUTOCOMPLETE__ = true; window.__HAS_DOCUMENT_SOURCE__ = true; window.__EDITOR_VARIANT__ = "\(variant)"; window.__PLACEHOLDER__ = \(jsStringLiteral(placeholder)); window.__SUBMIT_ON_ENTER__ = false; window.__DEBOUNCE_MS__ = undefined;</script>
             <script>\(js)</script>
             </body>
             </html>

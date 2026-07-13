@@ -10,6 +10,7 @@ struct Note: Codable, Identifiable, Hashable {
     var title: String
     var contentMd: String
     var date: String?
+    var createdAt: String = ""
 }
 
 /// Local-date helpers. Daily notes are keyed by a `YYYY-MM-DD` string in the user's

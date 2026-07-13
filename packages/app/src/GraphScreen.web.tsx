@@ -6,7 +6,7 @@ import { useStyledGraph } from "./useStyledGraph";
 // Explicit .web specifier: GraphView is a React Flow (DOM-only) module with no native
 // counterpart, so it is only ever imported by other .web files. The suffix lets tsc and
 // Vite resolve it while native bundlers never reach it.
-import { GraphEmpty, GraphView, graphCodeStyle } from "./GraphView.web";
+import { GraphEmpty, GraphView, graphCodeStyle } from "@companion/graph";
 
 // The whole-knowledgebase graph (PLAN §5.3), a top-level nav screen. React Flow is
 // DOM-only, so this is the .web variant; native gets a placeholder (GraphScreen.tsx).

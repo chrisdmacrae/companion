@@ -16,7 +16,8 @@
     "packages/config",
     "packages/core-bridge",
     "packages/design-system",
-    "packages/editor"
+    "packages/editor",
+    "packages/graph"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

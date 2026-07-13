@@ -3,19 +3,16 @@ import SwiftUI
 /// Settings sections shown in the persistent sidebar. Only Sync for now.
 enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     case sync
-    case trash   // moved off the rail into Settings (visionOS rail caps at 8 items)
 
     var id: String { rawValue }
     var label: String {
         switch self {
         case .sync: "Sync"
-        case .trash: "Trash"
         }
     }
     var symbol: String {
         switch self {
         case .sync: "arrow.triangle.2.circlepath"
-        case .trash: "trash"
         }
     }
 }
@@ -76,7 +73,6 @@ struct SettingsScreen: View {
     @ViewBuilder private var detailContent: some View {
         switch section {
         case .sync: SyncSettingsView(core: core)
-        case .trash: TrashSettingsView()
         }
     }
 }
@@ -148,21 +144,6 @@ private struct ForgotPasswordSheet: View {
         } catch {
             self.error = error.localizedDescription
         }
-    }
-}
-
-/// Trash lives in Settings on visionOS. The full trashed-items list (restore / delete
-/// forever) is a follow-up; for now it's a placeholder like the other unbuilt tools.
-private struct TrashSettingsView: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Trash")
-                .font(.largeTitle.bold())
-                .foregroundStyle(Brand.textPrimary)
-            Text("Restoring and permanently deleting trashed items is coming soon on visionOS.")
-                .foregroundStyle(Brand.textSecondary)
-        }
-        .frame(maxWidth: 560, alignment: .leading)
     }
 }
 

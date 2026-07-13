@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { Graph } from "@companion/core-bridge";
-import { GRAPH_CSS, GRAPH_JS } from "./graphBundle.generated";
+import { GRAPH_CSS, GRAPH_JS } from "@companion/graph/bundle";
 import { useStyledGraph } from "./useStyledGraph";
 
 // Native graph canvas: the exact same React Flow renderer the web app uses, hosted in a

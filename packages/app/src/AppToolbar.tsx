@@ -14,7 +14,6 @@ export function AppToolbar() {
   const notes = useNotes();
   const tasks = useTasks();
 
-  const inNotes = nav.current.kind === "notes";
   const inTasks = nav.current.kind === "tasks";
 
   const labelFor = (kind: "note" | "task", id: string) => {
@@ -22,14 +21,9 @@ export function AppToolbar() {
     return title || "Untitled";
   };
 
-  const onCreate = async () => {
-    if (inTasks) {
-      const task = await tasks.create({ title: "Untitled task" });
-      nav.openTask(task.id);
-    } else {
-      const note = await notes.create();
-      nav.openNote(note.id);
-    }
+  const onCreateTask = async () => {
+    const task = await tasks.create({ title: "Untitled task" });
+    nav.openTask(task.id);
   };
 
   return (
@@ -78,8 +72,8 @@ export function AppToolbar() {
       </ScrollView>
 
       <NotificationsBell />
-      {inNotes || inTasks ? (
-        <IconButton label={inTasks ? "New task" : "New note"} onPress={onCreate}>
+      {inTasks ? (
+        <IconButton label="New task" onPress={onCreateTask}>
           <Icon name="plus" color={colors.textSecondary} />
         </IconButton>
       ) : null}

@@ -110,7 +110,7 @@ struct GraphToolView: View {
 
     var body: some View {
         GraphCanvasView(core: core)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
             .padding(16)
     }
 }

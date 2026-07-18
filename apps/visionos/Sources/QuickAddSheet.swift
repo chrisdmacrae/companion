@@ -16,6 +16,11 @@ struct QuickAddSheet: View {
         var symbol: String { self == .note ? "note.text" : "checklist" }
     }
 
+    // Brand success/danger are mid-tones tuned for light surfaces; on the dark glass they
+    // read as muddy caption text, so use lighter tints for the resolved-date / error hints.
+    private static let onDarkSuccess = Color(hex: 0x5BD98A)
+    private static let onDarkWarning = Color(hex: 0xFFB27A)
+
     @State private var kind: Kind = .note
     @State private var noteDraft = ""
     @State private var taskTitle = ""
@@ -57,26 +62,36 @@ struct QuickAddSheet: View {
 
                 if let error {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
-                        .font(.callout).foregroundStyle(Brand.danger)
+                        .font(.callout).foregroundStyle(Self.onDarkWarning)
                 }
 
                 HStack(spacing: 12) {
-                    // Cancel is a neutral glass capsule; only the primary Save action
-                    // carries the brand orange (a solid-orange Cancel read as an error).
+                    // Custom-styled so contrast is explicit on the dark glass (the system
+                    // bordered styles tint the label to match the glass, which washed out).
+                    // Cancel: white label on a subtle capsule; Save: brand orange when active.
                     Button { dismiss() } label: {
-                        Text("Cancel").frame(maxWidth: .infinity)
+                        Text("Cancel")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(.white.opacity(0.14), in: .capsule)
+                            .contentShape(.capsule)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(.white)
+                    .buttonStyle(.plain)
 
                     Button { submit() } label: {
-                        Text(kind == .note ? "Save note" : "Save task").frame(maxWidth: .infinity)
+                        Text(kind == .note ? "Save note" : "Save task")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(canSubmit ? AnyShapeStyle(Brand.onAccent) : AnyShapeStyle(.white.opacity(0.45)))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(canSubmit ? AnyShapeStyle(Brand.accent) : AnyShapeStyle(.white.opacity(0.1)), in: .capsule)
+                            .contentShape(.capsule)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Brand.accent)
+                    .buttonStyle(.plain)
                     .disabled(!canSubmit || busy)
                 }
-                .controlSize(.large)
                 .padding(.top, 4)
             }
             .padding(24)
@@ -84,9 +99,9 @@ struct QuickAddSheet: View {
             .navigationTitle("Quick add")
         }
         .frame(minWidth: 560)
-        // Darken the system glass sheet to match the app (every tool sits on this same
-        // scrim over the window glass).
-        .background(Brand.gray950.opacity(0.32))
+        // Darken the system glass sheet to match the app and give white copy a consistent
+        // dark backdrop (every tool sits on this same scrim over the window glass).
+        .background(Brand.gray950.opacity(0.5))
         .onAppear { if kind == .task { taskTitleFocused = true } }
     }
 
@@ -102,7 +117,7 @@ struct QuickAddSheet: View {
                         Text(k.label)
                     }
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(active ? AnyShapeStyle(Brand.onAccent) : AnyShapeStyle(.white.opacity(0.7)))
+                    .foregroundStyle(active ? AnyShapeStyle(Brand.onAccent) : AnyShapeStyle(.white.opacity(0.85)))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 9)
                     .background(active ? AnyShapeStyle(Brand.accent) : AnyShapeStyle(.clear), in: .capsule)
@@ -127,8 +142,12 @@ struct QuickAddSheet: View {
             onChange: { noteDraft = $0 }
         )
         .frame(height: 200)
-        .background(Brand.surfaceCard, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        // Transparent over the dark glass, matching the task fields (light text is set in
+        // the editor HTML's simple-variant override). A subtle well bounds the field.
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.14)))
     }
 
     // MARK: Q2 — task
@@ -156,26 +175,29 @@ struct QuickAddSheet: View {
 
     private func field<Content: View>(_ label: String, hint: String? = nil, error: String? = nil, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(label).font(.subheadline.weight(.medium)).foregroundStyle(.white.opacity(0.8))
+            Text(label).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
             content()
             if let error {
-                Text(error).font(.caption).foregroundStyle(Brand.accent)
+                Label(error, systemImage: "exclamationmark.circle.fill")
+                    .font(.caption.weight(.medium)).foregroundStyle(Self.onDarkWarning)
             } else if let hint {
-                Text(hint).font(.caption).foregroundStyle(Brand.success)
+                Label(hint, systemImage: "checkmark.circle.fill")
+                    .font(.caption.weight(.medium)).foregroundStyle(Self.onDarkSuccess)
             }
         }
     }
 
     private func fieldInput(_ placeholder: String, text: Binding<String>, icon: String? = nil) -> some View {
         HStack(spacing: 8) {
-            if let icon { Image(systemName: icon).foregroundStyle(.white.opacity(0.5)) }
+            if let icon { Image(systemName: icon).foregroundStyle(.white.opacity(0.7)) }
             TextField(placeholder, text: text)
                 .foregroundStyle(.white)
                 .autocorrectionDisabled()
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 14)
-        .background(.white.opacity(0.1), in: .rect(cornerRadius: 10))
+        .background(.white.opacity(0.12), in: .rect(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.14)))
     }
 
     // MARK: Natural-language dates

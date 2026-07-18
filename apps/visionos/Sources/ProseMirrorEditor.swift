@@ -207,13 +207,21 @@ struct ProseMirrorEditor: UIViewRepresentable {
             let simple = variant == "simple"
             let bodyBg = simple ? "background:transparent;" : "min-height:100%;background:#ffffff;"
             let mountClass = simple ? "pm-compact" : "pm-wrap"
+            // The shared CSS colors text dark for a white page; the simple mount is
+            // transparent over the app's dark glass, so recolor its text/placeholder light.
+            let darkGlassOverride = simple ? """
+            .pm-compact .ProseMirror{color:#fff;}
+            .pm-compact .ProseMirror p.pm-empty:first-child::before{color:rgba(255,255,255,0.5);}
+            .pm-compact .ProseMirror blockquote{color:rgba(255,255,255,0.72);border-left-color:rgba(255,255,255,0.3);}
+            .pm-compact .ProseMirror code,.pm-compact .ProseMirror pre{background:rgba(255,255,255,0.14);}
+            """ : ""
             return """
             <!DOCTYPE html>
             <html>
             <head>
             <meta charset="utf-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-            <style>html,body{margin:0;padding:0;\(bodyBg)}\(css)</style>
+            <style>html,body{margin:0;padding:0;\(bodyBg)}\(css)\(darkGlassOverride)</style>
             </head>
             <body>
             <div id="editor" class="\(mountClass)"></div>

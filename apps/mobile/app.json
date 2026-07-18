@@ -30,7 +30,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-background-task"
+      "expo-background-task",
+      "./plugins/withAndroidSigning"
     ]
   }
 }
